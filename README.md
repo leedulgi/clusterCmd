@@ -1,1 +1,1 @@
-# clusterCmd
+# clusterCommand
