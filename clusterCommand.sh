@@ -70,11 +70,24 @@ function clscpHelp {
     echo     syntax : clscp filePath [destPath]
 }
 
+
 function clscp {
+    local option
 #    set -x
     echo $@
-    filePath="$1"
-    destPath="$2"
+
+    local OPTIND
+    while getopts ":*" opt; do
+        case $opt in
+            ?) 
+            eval option=$option \$$(expr $OPTIND - 1)
+            echo option:$option
+            ;;
+        esac
+    done
+    echo OPTIND:$OPTIND
+    eval filePath=\$$OPTIND
+    eval destPath=\$$(expr $OPTIND + 1)
     if [ $# -lt 1 ]; then
         clscpHelp
         return 1
@@ -85,8 +98,8 @@ function clscp {
     fi
     setclopts -o
     for node in $nodes; do
-        echo "cp $filePath > ${node}:$destPath"
-        scp $filePath ${node}:$destPath
+        echo "scp $option $filePath > ${node}:$destPath"
+#        scp $option $filePath ${node}:$destPath
     done
 #    set +x
 }
