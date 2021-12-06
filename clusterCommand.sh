@@ -71,28 +71,25 @@ function clscpHelp {
 }
 
 function clscp {
-    filePath=$1
-    destPath=$2
-    if $#<1; then
+#    set -x
+    echo $@
+    filePath="$1"
+    destPath="$2"
+    if [ $# -lt 1 ]; then
         clscpHelp
-        exit 1
+        return 1
     fi
-    if [ -z destPath ]; then
+    if [ -z $destPath ]; then
         destPath=$filePath
+        echo destPath:$destPath
     fi
     setclopts -o
     for node in $nodes; do
-        echo cp $filePath > ${node}:${destPath}
-#scp $node 
+        echo "cp $filePath > ${node}:$destPath"
+        scp $filePath ${node}:$destPath
     done
+#    set +x
 }
-
-#function clscp {
-#    setclopts $*
-#    for node in $(otherNodes); do
-#        cat $1 | ssh $node "sudo tee $1" > /dev/null 2>&1
-#    done
-#}
 
 #reboot nodes
 function clrb {
