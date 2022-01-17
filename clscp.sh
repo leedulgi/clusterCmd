@@ -1,16 +1,21 @@
 #!/bin/bash
 
-nodes=$(cat /etc/hosts | grep -E 'master|worker*' | awk '{print $2}')
+clcmd_home=$(cd $(dirname $0) && pwd)
+clcmd_conf=$clcmd_home/clcmd.conf
+
+nodes=$(cat $clcmd_conf | grep nodes | cut -d'=' -f2)
+echo nodes : $nodes
+
 curNode=$(hostname)
 recursive=""
 
 if [ "$1" == "-r" ];then
     recursive='-r'
     filePath=$2
-    targetPath=$3
+    targetPath='$3'
 else    
     filePath=$1
-    targetPath=$2
+    targetPath='$2'
 fi
 
 if [ -z $filePath ]; then
@@ -30,6 +35,6 @@ fi
 for node in $nodes; do
     if [ "$node" != "$curNode" ];then
         echo "cp $filePath -> ${node}:${targetPath}"
-        scp -F ~/.ssh/config $1 ${node}:${targetPath}
+        scp -F ~/.ssh/config $1 ${node}:$(${targetPath})
     fi
 done;    

@@ -10,8 +10,6 @@ if [ -z $1 ] ; then
   exit
 fi
 
-
-#nodes=$(cat /etc/hosts | grep -E 'master|worker*' | awk '{print $2}')
 nodes=$(cat $clcmd_conf | grep nodes | cut -d'=' -f2)
 echo nodes : $nodes
 
