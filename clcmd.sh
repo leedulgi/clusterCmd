@@ -5,17 +5,18 @@ clcmd_conf=$clcmd_home/clcmd.conf
 
 echo clcmd home : $clcmd_home
 
+nodes=$(cat $clcmd_conf | grep nodes | cut -d'=' -f2)
+echo nodes : $nodes
+
 if [ -z $1 ] ; then
   echo no command
   exit
 fi
 
-nodes=$(cat $clcmd_conf | grep nodes | cut -d'=' -f2)
-echo nodes : $nodes
-
 #curNode=$(hostname)
-cmd=$@
+
+cmd='$@'
 
 for node in $nodes; do
-  ssh $node $cmd
+eval  ssh $node $cmd
 done;    
