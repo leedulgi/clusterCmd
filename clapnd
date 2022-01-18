@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+clcmd_home=$(cd $(dirname $0) && pwd)
+clcmd_conf=$clcmd_home/clcmd.conf
+
+echo clcmd home : $clcmd_home
+
+nodes=( $(cat $clcmd_conf | grep ^nodes | cut -d'=' -f2) )
+
+function help {
+  echo cluster appendFile
+  echo clapnd <appendFile file\> <target path\>
+}
+
+if [ -z $1 ] ; then
+  echo no command
+  help
+  exit
+fi
+
+appendFilePath=$1
+targetPath=$2
+appendText=""
+
+echo target nodes : $nodes
+echo origin path : $appendFilePath
+#echo target path : $targetPath
+echo target path : $targetPath
+
+#not support tilde yet
+if [[ "$targetPath" == ${HOME}* ]];then
+  echo not support tilde yet. enter Fully Qualified Path
+  exit
+fi
+
+if [ -d $appendFilePath ];then
+  echo appendFile file is directory
+  exit
+fi
+if [ -f $appendFilePath ]; then
+  echo append type : file
+  appendText=$(cat ${appendFilePath})
+else
+  echo append type : text
+  appendText=$1
+fi
+echo appendText : $appendText
+
+if [ -z $targetPath ];then
+  no target File
+  exit
+fi
+
+
+for node in ${nodes[@]}; do
+#for node in "master1" "master2" "worker1" ; do
+  if [ "$node" != "$curNode" ];then
+echo node : $node
+    echo "append $appendFilePath -> ${node}:${targetPath}"
+    ssh ${node} "echo $appendText >> ${targetPath}"
+    echo $node appended
+  fi
+done;    
