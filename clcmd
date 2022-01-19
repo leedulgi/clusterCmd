@@ -42,7 +42,7 @@ function clcmd {
   cmd=${argArr[@]:1}
 #  echo command : $cmd
 
-  for node in $nodes; do
+  for node in ${nodes[@]}; do
 #   eval ssh $node $cmd
     echo  \$ $node : $cmd 
     ssh $node $cmd
