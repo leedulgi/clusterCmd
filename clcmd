@@ -2,12 +2,13 @@
 
 function help {
   echo cluster commander - matdulgi
-  echo 'clcmd <subCommand>'
-  echo '# sub command'
-  echo    -scp
-  echo    -cmd
-  echo    -apnd
-  echo    -help, -h
+  echo 'clcmd sub_command argument'
+  echo 
+  echo '# sub_command'
+  echo    -s  scp to other nodes
+  echo    -c  execute comman on other nodes
+  echo    -a  append text to oter node\'s target file
+  echo    -h  help
 }
 
 
@@ -15,7 +16,7 @@ function init {
   clcmd_home=$(cd $(dirname $0) && pwd)
   clcmd_conf=$clcmd_home/clcmd.conf
 
-  nodes=$(cat $clcmd_conf | grep ^\s*nodes | cut -d'=' -f2)
+  nodes=( $(cat $clcmd_conf | grep ^\s*nodes | cut -d'=' -f2) )
   curNode=$(cat $clcmd_conf | grep ^\s*curNode | cut -d'=' -f2)
 
 #if [[ -z $curNode ]]; then
@@ -57,7 +58,7 @@ function clscp {
 
   #verify file path
   if [ -z $orgPath ];then
-    echo there\'s no file
+    echo no file declared
     exit
   else
     if [ -d $orgPath ];then
@@ -73,20 +74,19 @@ function clscp {
     exit
   fi
 
-  for node in $nodes; do
+  for node in ${nodes[@]}; do
     if [ "$node" != "$curNode" ];then
       remoteHome=$(ssh $node 'echo $HOME')
-#      destPath=$(echo $3 | sed "s|^${HOME}|~|")
 
-#  if [ -z $destPath ]; then
-#    destPath=$(cd $(dirname $orgPath) && pwd | sed "s|^$HOME|~|")
-#  else
-      destPath=$(echo $3 |  sed "s|^${HOME}|${remoteHome}|")
-#  fi
+      if [ -z $3 ]; then
+        destPath=$(cd $(dirname $orgPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
+      else
+        destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+      fi
 
-      echo "cp $orgPath -> ${node}:${destPath}"
-      scp -F ~/.ssh/config $recursive $orgPath ${node}:${destPath}
-    fi
+    echo "cp $orgPath -> ${node}:${destPath}"
+    scp -F ~/.ssh/config $recursive $orgPath ${node}:${destPath}
+  fi
   done;    
 }
 
@@ -104,21 +104,26 @@ function clapnd {
     exit
   fi
   if [ -f $2 ]; then
-    echo append type : file
     appendText=$(cat $2)
-  else
-    echo append type : text
   fi
   if [ -z $3 ];then
     echo no target File
+    exit
+  fi
+  if [ "$4" != "" ];then
+    echo invalid argument
     exit
   fi
   
   echo append text : $appendText
 
   for node in ${nodes[@]}; do
-    if [ "$node" != "$curNode" ];then
-      targetPath=$(echo $3 |  sed "s|^${HOME}|${remoteHome}|")
+    if [ "$node" != "$curNode" ] ;then
+      remoteHome=$( ssh $node 'echo $HOME' )
+      echo remoteHome : $remoteHome
+      echo '$3' : $3
+      targetPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+      echo targetPath : $targetPath
       echo "append $appendText -> ${node}:${targetPath}"
       ssh ${node} "echo $appendText >> ${targetPath}"
       echo $node appended
@@ -126,8 +131,8 @@ function clapnd {
   done;    
 }
 
-init $@
 
+init $@
 case $1 in 
   -c)
     clcmd $@
@@ -143,6 +148,5 @@ case $1 in
     ;;
   *) 
     help
-    exit
     ;;
 esac
