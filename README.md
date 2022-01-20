@@ -32,6 +32,11 @@ curNode=node1
       ex) clcmd -a ~/testFile ~/testDir/targetFile
 ```
 
+# 추가해야 할 것
+* \* 지원 (와일드카드)
+* scp 디렉토리 자동 생성 
+* getopts
+* 특정 노드만 지정 
 
 
 
