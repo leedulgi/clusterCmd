@@ -4,17 +4,21 @@ set -x
 
 function init {
   cltls_home=$(cd $(dirname $0) && pwd)
+  if [[ -L $0 ]];then
+    cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
+  fi
+
   cltls_conf=$cltls_home/cluster-tools.conf
 
   curNode=$(cat $cltls_conf | grep ^\s*curNode | cut -d'=' -f2)
   target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes | cut -d'=' -f2)
   target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2)
 
-  # code for remove curNode from target_nodes
   if [[ $target_nodes == *"${curNode}"* ]]; then
     target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
   fi
-# code forset curNode automatically
+
+# code for set curNode automatically
 #if [[ -z $curNode ]]; then
 #  curNode=$(hostname -a)
 # hostname -a is deprecated
@@ -55,7 +59,6 @@ function clusterCopy {
   srcPath=$2
   destPath=""
   recursive=""
-  rFileExist=
 
   # check source file
   if [ -z $srcPath ];then
@@ -64,6 +67,7 @@ function clusterCopy {
   else
     if [ -d $srcPath ];then
       echo is directory : 'true'
+      srcPath=&{srcPath}/
       recursive='-r'
     elif [ -f $srcPath ];then    
       recursive=""
@@ -73,25 +77,37 @@ function clusterCopy {
 
   for node in ${target_nodes[@]}; do
 
-    # check remote path
-    ssh $target_user:$node [ -z $srcPath ]; then
-      echo 
-      exit
-
+    # check destination Path
     remoteHome=$(ssh $node 'echo $HOME')
-
     if [ -z $3 ]; then
       destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
     else
       destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
     fi
 
+    # check remote path
+    rFileExists=$(ssh $target_user@$node [[ -f $destPath ]] && echo "true" || echo "false")
+    if [[ $overwrite != Y && $rFileExists == true ]]; then
+      echo remote file $srcPath alreaty exists
+      echo will you overwrite?'(Y/y/n) default: n  Y: overwrite all node'
+      read overwrite
+      case $overwrite in
+        y|Y)
+          ;;
+        *)
+          continue
+          ;;
+      esac
+      echo overwrite : $overwrite
+    fi
+
     echo "cp $srcPath -> ${node}:${destPath}"
+#    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
     scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
   done;    
 }
 
-function clapnd {
+function clusterAppend {
   appendText=""
 
 #  echo origin path : $appendFilePath
@@ -152,10 +168,13 @@ case $1 in
     clusterCopy $@
     ;;
   cat)
-    clapnd $@
+    clusterAppend $@
     ;;
   --help) 
     help
+    ;;
+  test)
+    init $@
     ;;
   *) 
     clusterCmd $@
