@@ -12,7 +12,7 @@ target_nodes=node1 node2 node3 node4
 curNode=node1
 ```
 
-# 사용
+# usage
 ```
 **usage**
   cltls [__sub_command__] [__argument__] [__command__]
@@ -29,7 +29,7 @@ curNode=node1
       ex) cltls -a ~/testFile ~/testDir/targetFile
 ```
 
-# 추가해야 할 것
+# requires
 * cmd, append
 * \* 지원 (와일드카드)
 * cp 디렉토리 자동 생성 
