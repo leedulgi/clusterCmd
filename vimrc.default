@@ -1,0 +1,41 @@
+" swap file
+set nobackup
+set noswapfile
+
+" character encoding
+" - encoding : in terminal output 
+" - fileencoding : file's encoding (ucs-bom, utf-8, euc-kr, latin1)
+" - unix use euc-kr, rather cp949 (?)
+set encoding=utf-8
+set fileencodings=utf-8,cp949
+
+" tap
+set smartindent
+set tabstop=2
+set expandtab
+set shiftwidth=2
+
+
+" Vundle
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
+Plugin 'VundleVim/Vundle.vim'
+Plugin 'scrooloose/nerdtree' 
+Plugin 'AutoComplPop' "auto completion without ^p
+"Taglist requires Ctags, sudo yum install ctags 
+Plugin 'taglist-plus' 
+Plugin 'Raimondi/delimitMate' 
+Plugin 'machakann/vim-highlightedyank' 
+Plugin 'vim-airline/vim-airline'
+call vundle#end()
+
+"NerdTree configuration
+nmap <F3> :NERDTree<CR> 
+nmap <F4> :TlistToggle<CR>
+
+
+"etc
+set cindent 
+set history=1000 "undo history limit
+" set ignorecase "ignore case when search or replace
+set number

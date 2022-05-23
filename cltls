@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+set -x
+
+
+function init {
+  cltls_home=$(cd $(dirname $0) && pwd)
+  cltls_conf=$cltls_home/cluster-tools.conf
+
+  curNode=$(cat $cltls_conf | grep ^\s*curNode | cut -d'=' -f2)
+  target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes | cut -d'=' -f2)
+  target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2)
+
+  # code for remove curNode from target_nodes
+  if [[ $target_nodes == *"${curNode}"* ]]; then
+    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
+  fi
+# code forset curNode automatically
+#if [[ -z $curNode ]]; then
+#  curNode=$(hostname -a)
+# hostname -a is deprecated
+#fi
+
+  echo current node : $curNode
+  echo target nodes : $target_nodes
+  echo target user : $target_user
+
+}
+
+
+function getTargetHome {
+  ssh $1 'echo $HOME'
+}
+
+function clusterCmd {
+  if [ -z $2 ] ; then
+    echo no command
+    exit
+  fi
+
+  argArr=( $@ )
+  cmd=${argArr[@]:1}
+#  echo command : $cmd
+
+  for node in ${nodes[@]}; do
+#   eval ssh $node $cmd
+    echo  \$ $node : $cmd 
+    ssh $node $cmd
+    echo $node done
+  done;    
+  echo 
+}
+
+function clusterCopy {
+  echo clusterCopy
+  srcPath=$2
+  destPath=""
+  recursive=""
+  rFileExist=
+
+  # check source file
+  if [ -z $srcPath ];then
+    echo source file not exists
+    exit
+  else
+    if [ -d $srcPath ];then
+      echo is directory : 'true'
+      recursive='-r'
+    elif [ -f $srcPath ];then    
+      recursive=""
+    fi
+  fi
+
+
+  for node in ${target_nodes[@]}; do
+
+    # check remote path
+    ssh $target_user:$node [ -z $srcPath ]; then
+      echo 
+      exit
+
+    remoteHome=$(ssh $node 'echo $HOME')
+
+    if [ -z $3 ]; then
+      destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
+    else
+      destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+    fi
+
+    echo "cp $srcPath -> ${node}:${destPath}"
+    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
+  done;    
+}
+
+function clapnd {
+  appendText=""
+
+#  echo origin path : $appendFilePath
+
+  IFS_TMP=$IFS
+  IFS=\n
+
+  if [ -z $2 ];then
+    echo no appendFile declared
+    exit
+  fi
+  if [ -d $2 ];then
+    echo appendFile declared is directory
+    exit
+  fi
+  if [ -f $2 ]; then
+    appendText=( $(cat $2) )
+  fi
+  if [ -z $3 ];then
+    echo no target File
+    exit
+  fi
+  if [ "$4" != "" ];then
+    echo invalid argument
+    exit
+  fi
+  
+  echo append text : 
+  echo "[ $appendText ]"
+  for node in ${nodes[@]}; do
+    remoteHome=$( ssh $node 'echo $HOME' )
+    targetPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+    echo "append to ${node}:${targetPath}"
+    echo ${appendText[@]} | ssh ${node} "cat >> ${targetPath}"
+    echo $node appended
+  done;    
+  IFS=$IFS_TMP
+}
+
+
+function help {
+  echo cluster commander - matdulgi
+  echo usage
+  echo 'cltls sub_command argument'
+  echo 
+  echo 
+  echo '# sub_command'
+  echo    -s  scp to other nodes
+  echo    cp  execute comman on other nodes
+  echo    -a  append file to oter node\'s target file
+  echo    -h  help
+}
+
+
+init $@
+case $1 in 
+  cp)
+    clusterCopy $@
+    ;;
+  cat)
+    clapnd $@
+    ;;
+  --help) 
+    help
+    ;;
+  *) 
+    clusterCmd $@
+    ;;
+esac
+
+set +x
