@@ -30,6 +30,7 @@ curNode=node1
 ```
 
 # 추가해야 할 것
+* cmd, append
 * \* 지원 (와일드카드)
 * cp 디렉토리 자동 생성 
 * getopts
