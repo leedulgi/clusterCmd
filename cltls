@@ -113,8 +113,6 @@ function clusterAppend {
 
 #  echo origin path : $appendFilePath
 
-  IFS_TMP=$IFS
-  IFS=\n
 
   if [ -z $2 ];then
     echo no appendFile declared
@@ -125,7 +123,8 @@ function clusterAppend {
     exit
   fi
   if [ -f $2 ]; then
-    appendText=( $(cat $2) )
+#    appendText=( $(cat $2) )
+    appendText=$(cat $2)
   fi
   if [ -z $3 ];then
     echo no target File
@@ -136,16 +135,20 @@ function clusterAppend {
     exit
   fi
   
-  echo append text : 
-  echo "[ $appendText ]"
-  for node in ${nodes[@]}; do
+  echo append text [ 
+  echo "$appendText"
+  echo ]
+  for node in ${target_nodes[@]}; do
+    IFS_TMP=$IFS
+    IFS="\n"
+
     remoteHome=$( ssh $node 'echo $HOME' )
     targetPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
     echo "append to ${node}:${targetPath}"
     echo ${appendText[@]} | ssh ${node} "cat >> ${targetPath}"
     echo $node appended
+    IFS=$IFS_TMP
   done;    
-  IFS=$IFS_TMP
 }
 
 
@@ -153,13 +156,12 @@ function help {
   echo cluster commander - matdulgi
   echo usage
   echo 'cltls sub_command argument'
-  echo 
+  echo    execute comman on other nodes
   echo 
   echo '# sub_command'
-  echo    -s  scp to other nodes
-  echo    cp  execute comman on other nodes
-  echo    -a  append file to oter node\'s target file
-  echo    -h  help
+  echo    cp      cp to other nodes
+  echo    apnd    append file to oter node\'s target file
+  echo    --help  help
 }
 
 
@@ -168,7 +170,7 @@ case $1 in
   cp)
     clusterCopy $@
     ;;
-  cat)
+  apnd)
     clusterAppend $@
     ;;
   --help) 

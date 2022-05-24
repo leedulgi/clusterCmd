@@ -12,7 +12,7 @@ curNode=node1
 
 # usage
 **usage**
-  cltls [__sub_command__] [__argument__] [__command__]
+  cltls [__sub_command__] [__argument__] [__option__] [__command__]
   ex) cltls chmod u+w ~/testfile
 
 **subcommand**
@@ -21,12 +21,12 @@ curNode=node1
       ex 1) cltls -s testFile ~
       ex 2) cltls -s testFile
       ex 3) cltls -s /home/yura/testDir/testFile /home/dulgi  
-   - append  특정 파일의 내용을 다른 노드들의 파일에 추가
+   - apnd  특정 파일의 내용을 다른 노드들의 파일에 추가
       cltls -a **append_file
       ex) cltls -a ~/testFile ~/testDir/targetFile
 
+
 # requires
-* append
 * 스레드처리(pthread)
 * \* 지원 (와일드카드)
 * cp 디렉토리 자동 생성 
