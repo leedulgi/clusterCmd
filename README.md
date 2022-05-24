@@ -5,15 +5,12 @@
 
 # config
 cluster-tools.conf 파일을 편집
-```
-# target_nodes : 사용할 노드의 ssh host명 입력
+* target_nodes : 사용할 노드의 ssh host명 입력
 target_nodes=node1 node2 node3 node4
-# curNode : 목록중 현재 접속한 서버의 노드
+* curNode : 목록중 현재 접속한 서버의 노드
 curNode=node1
-```
 
 # usage
-```
 **usage**
   cltls [__sub_command__] [__argument__] [__command__]
   ex) cltls chmod u+w ~/testfile
@@ -27,15 +24,13 @@ curNode=node1
    - append  특정 파일의 내용을 다른 노드들의 파일에 추가
       cltls -a **append_file
       ex) cltls -a ~/testFile ~/testDir/targetFile
-```
 
 # requires
-* cmd, append
+* append
+* 스레드처리(pthread)
 * \* 지원 (와일드카드)
 * cp 디렉토리 자동 생성 
 * getopts
 * 특정 노드만 지정 
 
 
-
-2022.01.20 proto

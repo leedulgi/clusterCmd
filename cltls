@@ -36,20 +36,21 @@ function getTargetHome {
 }
 
 function clusterCmd {
-  if [ -z $2 ] ; then
+  if [ -z $1 ] ; then
     echo no command
     exit
   fi
 
   argArr=( $@ )
-  cmd=${argArr[@]:1}
+  cmd=${argArr[@]:0}
 #  echo command : $cmd
 
-  for node in ${nodes[@]}; do
+  for node in ${target_nodes[@]}; do
 #   eval ssh $node $cmd
-    echo  \$ $node : $cmd 
+#    echo  \$ $node : $cmd 
+
     ssh $node $cmd
-    echo $node done
+#    echo $node done
   done;    
   echo 
 }
