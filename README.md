@@ -9,6 +9,7 @@ cluster-tools.conf 파일을 편집
 target_nodes=node1 node2 node3 node4
 * curNode : 목록중 현재 접속한 서버의 노드
 curNode=node1
+like ssh, command without quotes not be garanteed
 
 # usage
 **usage**
