@@ -26,6 +26,18 @@ function init {
 
 }
 
+function checkSucceeded {
+  case $1 in 
+    0)
+    echo $node done!
+    ;;
+    1)
+    echo $node failed!
+    ;;
+    *)
+    ;;
+  esac
+}
 
 function getTargetHome {
   ssh $1 'echo $HOME'
@@ -44,9 +56,9 @@ function clusterCmd {
   for node in ${target_nodes[@]}; do
 #    echo  \$ $node : $cmd 
     ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
-    echo $node done!
-  done;    
-  echo 
+    checkSucceeded $?
+    echo ""
+  done
 }
 
 function clusterCopy {
