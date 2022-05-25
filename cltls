@@ -14,10 +14,6 @@ function init {
   target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes | cut -d'=' -f2)
   target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2)
 
-  if [[ $target_nodes == *"${curNode}"* ]]; then
-    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
-  fi
-
 # code for set curNode automatically
 #if [[ -z $curNode ]]; then
 #  curNode=$(hostname -a)
@@ -42,15 +38,13 @@ function clusterCmd {
   fi
 
   argArr=( $@ )
-  cmd=${argArr[@]:0}
+#  cmd=${argArr[@]:0}
 #  echo command : $cmd
 
   for node in ${target_nodes[@]}; do
-#   eval ssh $node $cmd
 #    echo  \$ $node : $cmd 
-
-    ssh $node $cmd
-#    echo $node done
+    ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
+    echo $node done!
   done;    
   echo 
 }
@@ -60,6 +54,10 @@ function clusterCopy {
   srcPath=$2
   destPath=""
   recursive=""
+
+  if [[ $curNode != "" && $target_nodes == *"${curNode}"* ]]; then
+    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
+  fi
 
   # check source file
   if [ -z $srcPath ];then
