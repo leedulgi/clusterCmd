@@ -78,7 +78,7 @@ function clusterCopy {
   else
     if [ -d $srcPath ];then
       echo is directory : 'true'
-      srcPath=&{srcPath}/
+      srcPath=$srcPath/
       recursive='-r'
     elif [ -f $srcPath ];then    
       recursive=""
@@ -117,6 +117,52 @@ function clusterCopy {
     scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
   done;    
 }
+
+
+
+
+function clusterSync {
+  set -x
+  echo clusterSync
+  srcPath=$2
+  destPath=""
+
+  if [[ $curNode != "" && $target_nodes == *"${curNode}"* ]]; then
+    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
+  fi
+
+  # check source file
+  if [ -z $srcPath ];then
+    echo source file not exists
+    exit
+  else
+    if [ -d $srcPath ];then
+      echo is directory : 'true'
+      srcPath=$srcPath
+    fi
+  fi
+
+
+  for node in ${target_nodes[@]}; do
+    # check destination Path
+    remoteHome=$(ssh $node 'echo $HOME')
+    if [ -z $3 ]; then
+      destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
+    else
+      destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+    fi
+
+    echo "sync $srcPath <-> ${node}:${destPath}"
+#   rsync -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
+    rsync -azvhP --rsync-path="mkdir -p ${destPath} && rsync" $srcPath ${node}:${destPath}
+  done
+  set +x
+}
+
+
+
+
+
 
 function clusterAppend {
   appendText=""
@@ -179,6 +225,9 @@ init $@
 case $1 in 
   cp)
     clusterCopy $@
+    ;;
+  sync)
+    clusterSync $@
     ;;
   apnd)
     clusterAppend $@

@@ -17,13 +17,15 @@ like ssh, command without quotes not be garanteed
   ex) cltls chmod u+w ~/testfile
 
 **subcommand**
-   - cp      모든 노드에 파일 복사
-      cltls  **org_file** **destination_path**
+   - cp    cp to other nodes
+      cltls cp **org_file** **destination_path**
       ex 1) cltls -s testFile ~
       ex 2) cltls -s testFile
       ex 3) cltls -s /home/yura/testDir/testFile /home/dulgi  
+   - sync  rsync for all other nodes
+      cltls sync .
    - apnd  특정 파일의 내용을 다른 노드들의 파일에 추가
-      cltls -a **append_file
+      cltls apnd append_source target
       ex) cltls -a ~/testFile ~/testDir/targetFile
 
 
@@ -32,6 +34,6 @@ like ssh, command without quotes not be garanteed
 * \* 지원 (와일드카드)
 * cp 디렉토리 자동 생성 
 * getopts
-* 특정 노드만 지정 
+* specify a node
 
 
