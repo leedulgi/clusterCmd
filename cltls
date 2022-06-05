@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -x
+#set -x
 
 
 function init {
@@ -10,45 +10,43 @@ function init {
 
   cltls_conf=$cltls_home/cluster-tools.conf
 
-  curNode=$(cat $cltls_conf | grep ^\s*curNode | cut -d'=' -f2)
+  cur_node=$(cat $cltls_conf | grep ^\s*cur_node | cut -d'=' -f2)
   target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes | cut -d'=' -f2)
   target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2)
 
-# code for set curNode automatically
-#if [[ -z $curNode ]]; then
-#  curNode=$(hostname -a)
+  # cluster copy
+  if [ "$1" = 'cp' ]; then
+    if [[ "$cur_node" != "" && $target_nodes == *"${cur_node}"* ]]; then
+      echo exclude current node
+      target_nodes=$(echo $target_nodes | sed "s/$cur_node//" )
+    fi
+  fi
+
+# code for set cur_node automatically
+#if [[ -z $cur_node ]]; then
+#  cur_node=$(hostname -a)
 # hostname -a is deprecated
 #fi
 
-  echo current node : $curNode
+  echo current node : $cur_node
   echo target nodes : $target_nodes
   echo target user : $target_user
 
 }
 
-function checkSucceeded {
-  case $1 in 
-    0)
-    echo $node done!
-    ;;
-    1)
-    echo $node failed!
-    ;;
-    *)
-    ;;
-  esac
+function get_rhome {
+  echo $(ssh $1 'echo $HOME')
 }
 
 function getTargetHome {
   ssh $1 'echo $HOME'
 }
 
-function clusterCmd {
+function cluster_cmd {
   if [ -z $1 ] ; then
-    echo no command
+    echo no command argument
     exit
   fi
-
   argArr=( $@ )
 #  cmd=${argArr[@]:0}
 #  echo command : $cmd
@@ -56,50 +54,50 @@ function clusterCmd {
   for node in ${target_nodes[@]}; do
 #    echo  \$ $node : $cmd 
     ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
-    checkSucceeded $?
-    echo ""
+    if [ $? -eq 127 ]; then
+      exit 
+    fi
   done
 }
 
-function clusterCopy {
-  echo clusterCopy
-  srcPath=$2
-  destPath=""
-  recursive=""
 
-  if [[ $curNode != "" && $target_nodes == *"${curNode}"* ]]; then
-    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
-  fi
+function cluster_cp {
+  echo cluster copy
+  src_path=$(cd $(dirname $2) && pwd)/$2
+  dest_path=""
+  recursive=""
+  mode=""
+
 
   # check source file
-  if [ -z $srcPath ];then
+  if [ -z $src_path ];then
     echo source file not exists
     exit
   else
-    if [ -d $srcPath ];then
-      echo is directory : 'true'
-      srcPath=$srcPath/
+    if [ -d $src_path ];then
+      mode='d'
+#      src_path=$src_path/
       recursive='-r'
-    elif [ -f $srcPath ];then    
-      recursive=""
+    elif [ -f $src_path ];then    
+      mode='f'
     fi
   fi
 
 
+  # set destination path
   for node in ${target_nodes[@]}; do
-
-    # check destination Path
-    remoteHome=$(ssh $node 'echo $HOME')
+    rhome=$(get_rhome $node)
     if [ -z $3 ]; then
-      destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
+      dest_path=$(echo $src_path | sed "s|^${HOME}|${rhome}|")
     else
-      destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+      dest_path=$(echo $3 | sed "s|^${HOME}|${rhome}|")
     fi
+    echo "copy $src_path -> ${node}:${dest_path}"
 
-    # check remote path
-    rFileExists=$(ssh $target_user@$node [[ -f $destPath ]] && echo "true" || echo "false")
-    if [[ $overwrite != Y && $rFileExists == true ]]; then
-      echo remote file $srcPath alreaty exists
+    # check destination path
+    rfile_exists=$(ssh $target_user@$node [[ -e $dest_path ]] && echo "true" || echo "false")
+    if [[ $overwrite != Y && $rfile_exists == true ]]; then
+      echo remote file $src_path alreaty exists
       echo will you overwrite?'(Y/y/n) default: n  Y: overwrite all node'
       read overwrite
       case $overwrite in
@@ -109,54 +107,48 @@ function clusterCopy {
           continue
           ;;
       esac
-      echo overwrite : $overwrite
     fi
-
-    echo "cp $srcPath -> ${node}:${destPath}"
-#    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
-    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
+    ssh $node mkdir -p $(dirname $dest_path)
+    scp -F ~/.ssh/config $recursive $src_path ${node}:${dest_path}
   done;    
 }
 
 
 
+function cluster_sync {
+  echo cluster_sync
+  src_path=$2
+  dest_path=""
 
-function clusterSync {
-  set -x
-  echo clusterSync
-  srcPath=$2
-  destPath=""
-
-  if [[ $curNode != "" && $target_nodes == *"${curNode}"* ]]; then
-    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
+  if [[ $cur_node != "" && $target_nodes == *"${cur_node}"* ]]; then
+    target_nodes=$(echo $target_nodes | sed "s/$cur_node//" )
   fi
 
   # check source file
-  if [ -z $srcPath ];then
+  if [ -z $src_path ];then
     echo source file not exists
     exit
   else
-    if [ -d $srcPath ];then
+    if [ -d $src_path ];then
       echo is directory : 'true'
-      srcPath=$srcPath
+      src_path=$src_path
     fi
   fi
 
 
   for node in ${target_nodes[@]}; do
     # check destination Path
-    remoteHome=$(ssh $node 'echo $HOME')
+    rhome=$(ssh $node 'echo $HOME')
     if [ -z $3 ]; then
-      destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
+      dest_path=$(cd $(dirname $src_path) && pwd | sed "s|^${HOME}|${rhome}|")
     else
-      destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+      dest_path=$(echo $3 | sed "s|^${HOME}|${rhome}|")
     fi
 
-    echo "sync $srcPath <-> ${node}:${destPath}"
-#   rsync -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
-    rsync -azvhP --rsync-path="mkdir -p ${destPath} && rsync" $srcPath ${node}:${destPath}
+    echo "sync $src_path <-> ${node}:${dest_path}"
+#   rsync -F ~/.ssh/config $recursive $src_path ${node}:${dest_path}
+    rsync -azvhP --rsync-path="mkdir -p ${dest_path} && rsync" $src_path ${node}:${dest_path}
   done
-  set +x
 }
 
 
@@ -164,7 +156,7 @@ function clusterSync {
 
 
 
-function clusterAppend {
+function cluster_apnd {
   appendText=""
 
 #  echo origin path : $appendFilePath
@@ -198,8 +190,8 @@ function clusterAppend {
     IFS_TMP=$IFS
     IFS="\n"
 
-    remoteHome=$( ssh $node 'echo $HOME' )
-    targetPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+    rhome=$( ssh $node 'echo $HOME' )
+    targetPath=$(echo $3 | sed "s|^${HOME}|${rhome}|")
     echo "append to ${node}:${targetPath}"
     echo ${appendText[@]} | ssh ${node} "cat >> ${targetPath}"
     echo $node appended
@@ -224,13 +216,13 @@ function help {
 init $@
 case $1 in 
   cp)
-    clusterCopy $@
+    cluster_cp $@
     ;;
   sync)
-    clusterSync $@
+    cluster_sync $@
     ;;
   apnd)
-    clusterAppend $@
+    cluster_apnd $@
     ;;
   --help) 
     help
@@ -239,8 +231,8 @@ case $1 in
     init $@
     ;;
   *) 
-    clusterCmd $@
+    cluster_cmd $@
     ;;
 esac
 
-set +x
+#set +x

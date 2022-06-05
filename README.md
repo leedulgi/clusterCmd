@@ -37,3 +37,5 @@ like ssh, command without quotes not be garanteed
 * specify a node
 
 
+# etc
+* version 2 will use ssh-config file as configuraion file
