@@ -52,11 +52,12 @@ function cluster_cmd {
 #  echo command : $cmd
 
   for node in ${target_nodes[@]}; do
-#    echo  \$ $node : $cmd 
+    echo $node : $@
     ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
     if [ $? -eq 127 ]; then
       exit 
     fi
+    echo done
   done
 }
 
