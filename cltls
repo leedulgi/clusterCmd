@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-if [[ -L $0 ]]; then
-  cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
-else
-  cltls_home=$(cd $(dirname $0) && pwd)
-fi
 
 init_config(){
   cltls_conf=$cltls_home/cluster-tools.conf
@@ -61,7 +56,8 @@ cluster_copy(){
   src_path=$1
 
   [ ! -e $src_path ] && echo source file does not exist && exit 1
-  recur=$( [ -d $src_path ] && echo '-r' || echo '' )
+
+  dir_mode=$( [ -d $src_path ] && echo 'y' || echo 'n' )
 
   for node in $target_nodes; do
     dest_path=$(get_dest_path $node $@)
@@ -81,9 +77,15 @@ cluster_copy(){
       echo overwrite : $overwrite
     fi
 
-    echo "cp $src_path -> ${node}:${dest_path}"
-    $test ssh $node "mkdir -p $(dirname $dest_path)"
-    $test scp $recur $src_path ${target_user}@${node}:${dest_path}
+    echo "copying $src_path -> ${node}:${dest_path}"
+    set -x
+    if [ "$dir_mode" == 'y' ]; then
+      $test ssh $node "mkdir -p $dest_path"
+      $test scp -r $src_path/* ${target_user}@${node}:${dest_path}
+    else
+      $test ssh $node "mkdir -p $(dirname $dest_path)"
+      $test scp $src_path ${target_user}@${node}:${dest_path}
+    fi
     echo
   done; echo
 }
@@ -166,6 +168,13 @@ exception(){
 
 
 # main
+#main() {}
+if [[ -L $0 ]]; then
+  cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
+else
+  cltls_home=$(cd $(dirname $0) && pwd)
+fi
+
 case "$1" in
   '')
     exception "no args!" ;;
