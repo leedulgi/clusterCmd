@@ -1,93 +1,74 @@
 #!/usr/bin/env bash
-set -x
-
-
-function init {
+if [[ -L $0 ]]; then
+  cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
+else
   cltls_home=$(cd $(dirname $0) && pwd)
-  if [[ -L $0 ]];then
-    cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
-  fi
+fi
 
+init_config(){
   cltls_conf=$cltls_home/cluster-tools.conf
+  cur_node=$(cat $cltls_conf | grep ^\s*cur_node | cut -d'=' -f2); [ -z $cur_node ] && echo no cur_node config && exit 1
+  target_nodes='' && init_target_nodes $@; [ -z "$target_nodes" ] && echo no target_nodes config && exit 1
+  target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2); [ -z $target_user ] && echo no target_user config && exit 1
 
-  curNode=$(cat $cltls_conf | grep ^\s*curNode | cut -d'=' -f2)
-  target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes | cut -d'=' -f2)
-  target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2)
-
-# code for set curNode automatically
-#if [[ -z $curNode ]]; then
-#  curNode=$(hostname -a)
-# hostname -a is deprecated
-#fi
-
-  echo current node : $curNode
+  echo current node : $cur_node
   echo target nodes : $target_nodes
   echo target user : $target_user
-
 }
 
 
-function getTargetHome {
-  ssh $1 'echo $HOME'
+init_target_nodes(){
+  case $1 in 
+    all|dn|nn)
+      target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes_$1 | cut -d'=' -f2) ;;
+    *) 
+      all_nodes=$(cat $cltls_conf | grep ^s*target_nodes_all)
+      if [[ "$all_nodes" == *"$1"* ]]; then target_nodes=$1; 
+      else echo "wrong target : $1" && exit 1; fi 
+      ;;
+  esac
 }
 
-function clusterCmd {
-  if [ -z $1 ] ; then
-    echo no command
-    exit
-  fi
 
-  argArr=( $@ )
-#  cmd=${argArr[@]:0}
-#  echo command : $cmd
+cluster_cmd(){
+  if [ -z $1 ] ; then echo no command; exit 1; fi
 
-  for node in ${target_nodes[@]}; do
-#    echo  \$ $node : $cmd 
-    ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
-    echo $node done!
+  target_nodes="$cur_node $target_nodes"
+  for node in $target_nodes; do
+    echo "  === for node $node ==="
+#    $test ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
+    $test ssh $node "$@"
+    echo "  $node done! ==="; echo
   done;    
   echo 
 }
 
-function clusterCopy {
-  echo clusterCopy
-  srcPath=$2
-  destPath=""
-  recursive=""
 
-  if [[ $curNode != "" && $target_nodes == *"${curNode}"* ]]; then
-    target_nodes=$(echo $target_nodes | sed "s/$curNode//" )
+# args : [hostname]
+get_r_home(){
+  ssh $1 'echo $HOME'
+}
+
+# args : [node, source_path, [dest_path]]
+get_dest_path(){
+  r_home=$(ssh $node 'echo $HOME')
+  if [ -z $2 ]; then cd $src_path && pwd | sed "s|^${HOME}|${r_home}|"
+  else echo $2 | sed "s|^${HOME}|${r_home}|"
   fi
+}
 
-  # check source file
-  if [ -z $srcPath ];then
-    echo source file not exists
-    exit
-  else
-    if [ -d $srcPath ];then
-      echo is directory : 'true'
-      srcPath=&{srcPath}/
-      recursive='-r'
-    elif [ -f $srcPath ];then    
-      recursive=""
-    fi
-  fi
+cluster_copy(){
+  src_path=$1
 
+  [ ! -e $src_path ] && echo source file does not exist && exit 1
+  recur=$( [ -d $src_path ] && echo '-r' || echo '' )
 
-  for node in ${target_nodes[@]}; do
+  for node in $target_nodes; do
+    dest_path=$(get_dest_path $node $@)
 
-    # check destination Path
-    remoteHome=$(ssh $node 'echo $HOME')
-    if [ -z $3 ]; then
-      destPath=$(cd $(dirname $srcPath) && pwd | sed "s|^${HOME}|${remoteHome}|")
-    else
-      destPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
-    fi
-
-    # check remote path
-    rFileExists=$(ssh $target_user@$node [[ -f $destPath ]] && echo "true" || echo "false")
-    if [[ $overwrite != Y && $rFileExists == true ]]; then
-      echo remote file $srcPath alreaty exists
+    r_file_exists=$(ssh $target_user@$node [[ -f "$dest_path" ]] && echo "true" || echo "false")
+    if [ "$overwrite" != Y ] && [ "$r_file_exists" == true ]; then
+      echo remote file $src_path alreaty exists
       echo will you overwrite?'(Y/y/n) default: n  Y: overwrite all node'
       read overwrite
       case $overwrite in
@@ -100,13 +81,35 @@ function clusterCopy {
       echo overwrite : $overwrite
     fi
 
-    echo "cp $srcPath -> ${node}:${destPath}"
-#    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
-    scp -F ~/.ssh/config $recursive $srcPath ${node}:${destPath}
-  done;    
+    echo "cp $src_path -> ${node}:${dest_path}"
+    $test ssh $node "mkdir -p $(dirname $dest_path)"
+    $test scp $recur $src_path ${target_user}@${node}:${dest_path}
+    echo
+  done; echo
 }
 
-function clusterAppend {
+
+cluster_sync(){
+  src_path=$1
+
+  [ ! -e $src_path ] && echo source file does not exist && exit 1
+  dirmode=$( [ -d $src_path ] && echo '/' || echo '' )
+
+  for node in $target_nodes; do
+    r_home=$(ssh $node 'echo $HOME')
+    dest_path=$(get_dest_path $@)
+
+    echo "sync $src_path$dirmode -> ${target_user}@${node}:${dest_path}"
+    $test ssh $node "mkdir -p $(dirname $dest_path)"
+    $test rsync -avh $src_path$dirmode ${target_user}@${node}:${dest_path}
+    echo
+  done; echo 
+}
+
+
+
+
+cluster_append(){
   appendText=""
 
 #  echo origin path : $appendFilePath
@@ -121,7 +124,6 @@ function clusterAppend {
     exit
   fi
   if [ -f $2 ]; then
-#    appendText=( $(cat $2) )
     appendText=$(cat $2)
   fi
   if [ -z $3 ];then
@@ -140,8 +142,8 @@ function clusterAppend {
     IFS_TMP=$IFS
     IFS="\n"
 
-    remoteHome=$( ssh $node 'echo $HOME' )
-    targetPath=$(echo $3 | sed "s|^${HOME}|${remoteHome}|")
+    r_home=$( ssh $node 'echo $HOME' )
+    targetPath=$(echo $3 | sed "s|^${HOME}|${r_home}|")
     echo "append to ${node}:${targetPath}"
     echo ${appendText[@]} | ssh ${node} "cat >> ${targetPath}"
     echo $node appended
@@ -150,36 +152,54 @@ function clusterAppend {
 }
 
 
-function help {
-  echo cluster commander - matdulgi
+help(){
+  echo cluster tools - matdulgi
   echo usage
-  echo 'cltls sub_command argument'
-  echo    execute comman on other nodes
-  echo 
-  echo '# sub_command'
-  echo    cp      cp to other nodes
-  echo    apnd    append file to oter node\'s target file
-  echo    --help  help
+  echo 'cltls [test] (all|dn|nn|...) (cmd|cp|sync|...) args'
+}
+
+# args : [message]
+exception(){
+  echo $1 && help && exit 1
 }
 
 
-init $@
-case $1 in 
-  cp)
-    clusterCopy $@
-    ;;
-  apnd)
-    clusterAppend $@
-    ;;
-  --help) 
-    help
-    ;;
+
+# main
+case "$1" in
+  '')
+    exception "no args!" ;;
+  help)
+    help && exit ;;
   test)
-    init $@
-    ;;
-  *) 
-    clusterCmd $@
-    ;;
+    test='echo test : '; shift 1 ;;
 esac
 
-set +x
+init_config $@ ; shift 1 # target nodes
+[ $# -eq 0 ] && exception "no command!"
+[ $# -eq 0 ] && exception "no args for command!"
+
+command=$1 && shift 1
+case $command in 
+  cp)
+    echo Cluster Copy
+    cluster_copy $@
+    ;;
+  sync)
+    echo Cluster Sync
+    cluster_sync $@
+    ;;
+  apnd)
+    echo Cluster Append
+    cluster_append $@
+    ;;
+  cmd) 
+    echo Cluster Comamnd
+    set -f
+    cluster_cmd $@
+    set +f
+    ;;
+  *) 
+    exception "wrong command! : $command"
+esac
+
