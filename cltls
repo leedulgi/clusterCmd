@@ -46,23 +46,20 @@ get_r_home(){
 
 # args : [node, source_path, [dest_path]]
 get_dest_path(){
-  r_home=$(ssh $node 'echo $HOME')
-  if [ -z $2 ]; then cd $src_path && pwd | sed "s|^${HOME}|${r_home}|"
-  else echo $2 | sed "s|^${HOME}|${r_home}|"
+  r_home=$(ssh "$1" 'echo $HOME')
+  if [ -z "$3" ]; then echo "$src_path" | sed "s|^${HOME}|${r_home}|"
+  else echo "$3" | sed "s|^${HOME}|${r_home}|"
   fi
 }
 
 cluster_copy(){
-  src_path=$1
-
-  [ ! -e $src_path ] && echo source file does not exist && exit 1
-
+  src_path=$( [ -e $src_path ] && cd "$1" && pwd || echo source file does not exist && exit 1 )
   dir_mode=$( [ -d $src_path ] && echo 'y' || echo 'n' )
 
   for node in $target_nodes; do
     dest_path=$(get_dest_path $node $@)
-
     r_file_exists=$(ssh $target_user@$node [[ -f "$dest_path" ]] && echo "true" || echo "false")
+
     if [ "$overwrite" != Y ] && [ "$r_file_exists" == true ]; then
       echo remote file $src_path alreaty exists
       echo will you overwrite?'(Y/y/n) default: n  Y: overwrite all node'
@@ -78,7 +75,6 @@ cluster_copy(){
     fi
 
     echo "copying $src_path -> ${node}:${dest_path}"
-    set -x
     if [ "$dir_mode" == 'y' ]; then
       $test ssh $node "mkdir -p $dest_path"
       $test scp -r $src_path/* ${target_user}@${node}:${dest_path}
@@ -92,18 +88,15 @@ cluster_copy(){
 
 
 cluster_sync(){
-  src_path=$1
-
-  [ ! -e $src_path ] && echo source file does not exist && exit 1
-  dirmode=$( [ -d $src_path ] && echo '/' || echo '' )
+  src_path=$( [ -e $src_path ] && cd "$1" && pwd || echo source file does not exist && exit 1 )
+  dir_dlm=$( [ -d $src_path ] && echo '/' || echo '' )
 
   for node in $target_nodes; do
-    r_home=$(ssh $node 'echo $HOME')
-    dest_path=$(get_dest_path $@)
+    dest_path=$(get_dest_path $node $@)
 
     echo "sync $src_path$dirmode -> ${target_user}@${node}:${dest_path}"
     $test ssh $node "mkdir -p $(dirname $dest_path)"
-    $test rsync -avh $src_path$dirmode ${target_user}@${node}:${dest_path}
+    $test rsync -avh $src_path$dir_dlm ${target_user}@${node}:${dest_path}
     echo
   done; echo 
 }
