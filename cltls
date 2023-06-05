@@ -11,17 +11,20 @@ init_config(){
   echo target user : $target_user
 }
 
-
+# args: [ target ]
 init_target_nodes(){
-  case $1 in 
-    all|dn|nn)
-      target_nodes=$(cat $cltls_conf | grep ^\s*target_nodes_$1 | cut -d'=' -f2) ;;
-    *) 
+  prefix="target_nodes_"
+  target_nodes_prop=$( cat "$cltls_conf" | grep "^\s*$prefix$1" )
+  target_nodes=$(
+    if [ -n "$target_nodes_prop" ]; then
+      echo "$target_nodes_prop" | cut -d'=' -f2
+    else 
       all_nodes=$(cat $cltls_conf | grep ^s*target_nodes_all)
       if [[ "$all_nodes" == *"$1"* ]]; then target_nodes=$1; 
-      else echo "wrong target : $1" && exit 1; fi 
-      ;;
-  esac
+      else echo "";
+      fi
+    fi
+  ); [ -z $target_nodes ] && echo "wrong target : $1" && exit 1; 
 }
 
 
