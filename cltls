@@ -2,13 +2,19 @@
 
 init_config(){
   cltls_conf=$cltls_home/cluster-tools.conf
-  cur_node=$(cat $cltls_conf | grep ^\s*cur_node | cut -d'=' -f2); [ -z $cur_node ] && echo no cur_node config && exit 1
-  target_nodes='' && init_target_nodes $@; [ -z "$target_nodes" ] && echo no target_nodes config && exit 1
-  target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2); [ -z $target_user ] && echo no target_user config && exit 1
+  cur_node=$(get_prop_value cur_node); [ $? -eq 1 ] && echo no cur_node config && exit 1
+  target_nodes=$(init_target_nodes $@); [ $? -eq 1 ] && echo no target_nodes config && exit 1
+  target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2); [ -z "$target_user" ] && echo no target_user config && exit 1
 
   echo current node : $cur_node
   echo target nodes : $target_nodes
   echo target user : $target_user
+}
+
+# args: [ prop_key ]
+get_prop_value(){
+  value=$(cat $cltls_conf | grep ^\s*$1 | cut -d'=' -f2)
+  [ -n "$value" ] && echo $value || exit 1
 }
 
 # args: [ target ]
@@ -19,19 +25,20 @@ init_target_nodes(){
     if [ -n "$target_nodes_prop" ]; then
       echo "$target_nodes_prop" | cut -d'=' -f2
     else 
-      all_nodes=$(cat $cltls_conf | grep ^s*target_nodes_all)
-      if [[ "$all_nodes" == *"$1"* ]]; then target_nodes=$1; 
-      else echo "";
+      all_nodes=$(cat $cltls_conf | grep ^s*target_nodes_all | cut -d'=' -f2)
+      if [[ "$all_nodes" == *"$1"* ]]; then echo $1; 
+      else exit 1
       fi
     fi
-  ); [ -z $target_nodes ] && echo "wrong target : $1" && exit 1; 
+  ); [ $? -eq 1 ] && echo "wrong target : $1" && exit 1; 
+  echo $target_nodes
 }
 
 
 cluster_cmd(){
   if [ -z $1 ] ; then echo no command; exit 1; fi
 
-  target_nodes="$cur_node $target_nodes"
+#  target_nodes="$cur_node $target_nodes"
   for node in $target_nodes; do
     echo "  === for node $node ==="
 #    $test ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
@@ -55,8 +62,13 @@ get_dest_path(){
   fi
 }
 
+# args : [rel_path]
+abs_path(){
+  echo $(cd $(dirname "$1") && pwd)/$(basename "$1")
+}
+
 cluster_copy(){
-  src_path=$( [ -e $src_path ] && cd "$1" && pwd || echo source file does not exist && exit 1 )
+  src_path=$( [ -e "$1" ] && abs_path "$1" || exit 1 ); [ $? == 1 ] && echo source file does not exist : $1 && exit 1 
   dir_mode=$( [ -d $src_path ] && echo 'y' || echo 'n' )
 
   for node in $target_nodes; do
