@@ -103,8 +103,8 @@ cluster_copy(){
 
 
 cluster_sync(){
-  src_path=$( [ -e $src_path ] && cd "$1" && pwd || echo source file does not exist && exit 1 )
-  dir_dlm=$( [ -d $src_path ] && echo '/' || echo '' )
+  src_path=$([ -e "$1" ] && abs_path "$1" || exit 1); [ $? -eq 1 ] && echo source file does not exist && exit 1
+  dir_dlm=$([ -d "$src_path" ] && echo '/' || echo '')
 
   for node in $target_nodes; do
     dest_path=$(get_dest_path $node $@)
