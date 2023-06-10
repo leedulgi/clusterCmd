@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
 
+# properties in bootstrap.sh
+#  - variables
+#  cltls_conf
+#
+#  - functions
+#  get_prop_value
+#
+
 init_config(){
   cltls_conf=$cltls_home/cluster-tools.conf
   cur_node=$(get_prop_value cur_node); [ $? -eq 1 ] && echo no cur_node config && exit 1
   target_nodes=$(init_target_nodes $@); [ $? -eq 1 ] && echo no target_nodes config && exit 1
   target_user=$(cat $cltls_conf | grep ^\s*target_user | cut -d'=' -f2); [ -z "$target_user" ] && echo no target_user config && exit 1
+}
 
+print_env(){
+  echo '=== env ==='
   echo current node : $cur_node
   echo target nodes : $target_nodes
   echo target user : $target_user
-}
-
-# args: [ prop_key ]
-get_prop_value(){
-  value=$(cat $cltls_conf | grep ^\s*$1 | cut -d'=' -f2)
-  [ -n "$value" ] && echo $value || exit 1
+  echo command : $command
+  echo
 }
 
 # args: [ target ]
@@ -38,12 +45,10 @@ init_target_nodes(){
 cluster_cmd(){
   if [ -z $1 ] ; then echo no command; exit 1; fi
 
-#  target_nodes="$cur_node $target_nodes"
   for node in $target_nodes; do
-    echo "  === for node $node ==="
-#    $test ssh $node "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" 
+    echo "=== for node $node ==="
     $test ssh $node "$@"
-    echo "  $node done! ==="; echo
+    echo "$node done! ==="; echo
   done;    
   echo 
 }
@@ -174,49 +179,59 @@ exception(){
 }
 
 
-
 # main
-#main() {}
+main() {
+  case "$1" in
+    '')
+      exception "no args!" ;;
+    help)
+      help && exit ;;
+    test)
+      test='echo test : '; shift 1 ;;
+  esac
+
+  init_config $@ ; shift 1 # target nodes
+
+  [ $# -eq 0 ] && exception "no command!"
+  [ $# -eq 0 ] && exception "no args for command!"
+  command=$1 && shift 1
+
+  print_env
+
+  case $command in 
+    cp)
+      echo '=== Cluster Copy ==='; echo
+      cluster_copy $@
+      ;;
+    sync)
+      echo '=== Cluster Sync ==='; echo
+      cluster_sync $@
+      ;;
+    apnd)
+      echo '=== Cluster Append ==='; echo
+      cluster_append $@
+      ;;
+    cmd) 
+      echo '=== Cluster Comamnd ==='; echo
+      set -f
+      cluster_cmd $@
+      set +f
+      ;;
+    *) 
+      exception "wrong command! : $command"
+  esac
+
+}
+
+
+
 if [[ -L $0 ]]; then
   cltls_home=$(cd $(dirname $(readlink -f $0)) && pwd)
 else
   cltls_home=$(cd $(dirname $0) && pwd)
 fi
 
-case "$1" in
-  '')
-    exception "no args!" ;;
-  help)
-    help && exit ;;
-  test)
-    test='echo test : '; shift 1 ;;
-esac
+. $cltls_home/bootstrap.sh
 
-init_config $@ ; shift 1 # target nodes
-[ $# -eq 0 ] && exception "no command!"
-[ $# -eq 0 ] && exception "no args for command!"
-
-command=$1 && shift 1
-case $command in 
-  cp)
-    echo Cluster Copy
-    cluster_copy $@
-    ;;
-  sync)
-    echo Cluster Sync
-    cluster_sync $@
-    ;;
-  apnd)
-    echo Cluster Append
-    cluster_append $@
-    ;;
-  cmd) 
-    echo Cluster Comamnd
-    set -f
-    cluster_cmd $@
-    set +f
-    ;;
-  *) 
-    exception "wrong command! : $command"
-esac
+main $@
 
